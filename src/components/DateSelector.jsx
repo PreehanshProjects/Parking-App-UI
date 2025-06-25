@@ -24,7 +24,7 @@ function DateSelector({ selectedDate, onDateChange }) {
   };
 
   return (
-    <div className="px-6 mb-8">
+    <div className="px-6 mb-8 my-8">
       <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
         <label className="block text-base font-semibold text-gray-800 mb-3">
           📆 Choose Your Parking Date
