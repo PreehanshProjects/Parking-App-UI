@@ -5,14 +5,18 @@ const FUNCTION_URL_BASE = "https://fflgdynxowljjfjytyhd.functions.supabase.co";
 
 /**
  * Retrieves the current user's access token from Supabase.
+ * @returns {Promise<string>}
  */
 export async function getToken() {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
 
-  if (error || !session) {
+  if (error) {
+    console.error("Error fetching session:", error);
+    throw new Error("Failed to retrieve session");
+  }
+
+  const session = data?.session;
+  if (!session?.access_token) {
     throw new Error("User not authenticated");
   }
 
@@ -20,11 +24,15 @@ export async function getToken() {
 }
 
 /**
- * Parses an error from a fetch response (handles both JSON and text bodies).
+ * Parses a fetch error from the response.
+ * Clones the response to avoid body-read errors.
+ * @param {Response} response
+ * @returns {Promise<string>}
  */
 async function parseError(response) {
   try {
-    const json = await response.json();
+    const clone = response.clone(); // Clone so we don't exhaust the stream
+    const json = await clone.json();
     return json.message || JSON.stringify(json);
   } catch {
     return await response.text();
@@ -33,6 +41,8 @@ async function parseError(response) {
 
 /**
  * Books a parking spot for a specific date.
+ * @param {string} spotId
+ * @param {string} date - ISO string (YYYY-MM-DD)
  */
 export async function bookSpot(spotId, date) {
   const token = await getToken();
@@ -54,7 +64,32 @@ export async function bookSpot(spotId, date) {
 }
 
 /**
- * Gets bookings for current user.
+ * Cancels an existing booking.
+ * @param {string} spotId
+ * @param {string} date - ISO format
+ */
+export async function cancelBooking(spotId, date) {
+  const token = await getToken();
+
+  const response = await fetch(`${FUNCTION_URL_BASE}/cancel-booking`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ spotId, date }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return await response.json();
+}
+
+/**
+ * Gets bookings for the current user.
+ * @returns {Promise<Array>}
  */
 export async function getUserBookings() {
   const token = await getToken();
@@ -74,18 +109,17 @@ export async function getUserBookings() {
 }
 
 /**
- * Cancels a booking.
+ * Gets all bookings for all users (for admin/global view).
+ * @returns {Promise<Array>}
  */
-export async function cancelBooking(spotId, date) {
+export async function getAllBookings() {
   const token = await getToken();
 
-  const response = await fetch(`${FUNCTION_URL_BASE}/cancel-booking`, {
-    method: "POST",
+  const response = await fetch(`${FUNCTION_URL_BASE}/get-all-bookings`, {
+    method: "GET",
     headers: {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ spotId, date }),
   });
 
   if (!response.ok) {

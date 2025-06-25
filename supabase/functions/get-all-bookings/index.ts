@@ -1,4 +1,4 @@
-// supabase/functions/get-user-bookings/index.ts
+// supabase/functions/get-all-bookings/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { supabase, getUser } from "../_shared/supabase.ts";
 
@@ -23,8 +23,7 @@ serve(async (req) => {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, spot_id, booking_date, spots(type)")
-    .eq("user_id", user.id);
+    .select("id, spot_id, booking_date, user_id, user_email, spots(type)");
 
   if (error) {
     return new Response(error.message, {
@@ -37,16 +36,13 @@ serve(async (req) => {
     id: b.id,
     spotId: b.spot_id,
     date: b.booking_date,
-    userId: user.id,
-    userEmail: user.email,
+    userId: b.user_id,
+    userEmail: b.user_email,
     type: b.spots?.type ?? "unknown",
   }));
 
   return new Response(JSON.stringify(result), {
     status: 200,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

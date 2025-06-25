@@ -2,7 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { supabase } from "./utils/supabaseClient";
-import { bookSpot, getUserBookings, cancelBooking } from "./api/booking";
+
+import {
+  bookSpot,
+  getUserBookings,
+  getAllBookings,
+  cancelBooking,
+} from "./api/booking";
 
 import Navbar from "./components/NavBar";
 import Login from "./components/Auth/Login";
@@ -27,40 +33,48 @@ function MainPage({ spots, selectedDate, setSelectedDate, handleBooking }) {
 function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [spots, setSpots] = useState(initialSpots);
+
   const [userBookings, setUserBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
+
+  const [spots, setSpots] = useState(initialSpots);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const currentUser = session?.user?.id;
+  const [isBooking, setIsBooking] = useState(false); // 🚗 Booking in progress flag
+
+  const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
 
-  // Fetch user bookings from backend
-  const fetchBookings = async () => {
-    if (!session) {
-      setUserBookings([]);
-      return;
+  const fetchAllBookings = async () => {
+    try {
+      const bookings = await getAllBookings();
+      setAllBookings(bookings);
+    } catch (error) {
+      console.error("Failed to fetch all bookings:", error);
+      toast.error("Could not load spot availability.");
     }
+  };
 
+  const fetchUserBookings = async () => {
     try {
       const bookings = await getUserBookings();
       setUserBookings(bookings);
     } catch (error) {
-      console.error("Failed to fetch bookings:", error);
+      console.error("Failed to fetch your bookings:", error);
       toast.error("Could not load your bookings.");
     }
   };
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+
       if (window.location.hash.startsWith("#access_token")) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
 
-    // Listen to auth state change
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -71,14 +85,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetchBookings();
+    if (session) {
+      fetchUserBookings();
+      fetchAllBookings();
+    } else {
+      setUserBookings([]);
+      setAllBookings([]);
+    }
   }, [session]);
 
-  // Update spots based on bookings for selected date
   useEffect(() => {
     setSpots(
       initialSpots.map((spot) => {
-        const booking = userBookings.find(
+        const booking = allBookings.find(
           (b) =>
             b.spotId === spot.id &&
             new Date(b.date).toDateString() === selectedDate.toDateString()
@@ -92,7 +111,7 @@ function App() {
         };
       })
     );
-  }, [userBookings, selectedDate]);
+  }, [allBookings, selectedDate]);
 
   const handleBooking = async (spotId) => {
     if (!session) return toast.error("Please log in first.");
@@ -105,13 +124,14 @@ function App() {
         b.userId === currentUser &&
         new Date(b.date).toDateString() === selectedDate.toDateString()
     );
-    if (hasBookingToday) return toast.error("One booking per day only.");
+    if (hasBookingToday) return toast.error("Only one booking per day allowed.");
 
     const spot = spots.find((s) => s.id === spotId);
 
     if (spot.type === "underground") {
       const weekStart = new Date(selectedDate);
-      weekStart.setDate(weekStart.getDate() - day);
+      const dayOffset = selectedDate.getDay();
+      weekStart.setDate(weekStart.getDate() - dayOffset);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
@@ -131,12 +151,16 @@ function App() {
     }
 
     try {
+      setIsBooking(true); // 🚗 Start animation
       const dateStr = selectedDate.toISOString().split("T")[0];
       await bookSpot(spotId, dateStr);
       toast.success("Booking successful!");
-      await fetchBookings();
+      await fetchUserBookings();
+      await fetchAllBookings();
     } catch (error) {
       toast.error(error.message || "Booking failed.");
+    } finally {
+      setIsBooking(false); // 🛑 Stop animation
     }
   };
 
@@ -144,7 +168,8 @@ function App() {
     try {
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
       toast.success("Booking cancelled.");
-      await fetchBookings();
+      await fetchUserBookings();
+      await fetchAllBookings();
     } catch (error) {
       toast.error(error.message || "Failed to cancel booking.");
     }
@@ -166,6 +191,7 @@ function App() {
         userEmail={userEmail}
         onLoginToggle={() => (session ? supabase.auth.signOut() : null)}
       />
+
       <Routes>
         <Route
           path="/"
@@ -186,7 +212,10 @@ function App() {
           path="/bookings"
           element={
             session ? (
-              <BookingsPage bookings={userBookings} onCancel={handleCancel} />
+              <BookingsPage
+                bookings={userBookings}
+                onCancel={handleCancel}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -201,6 +230,13 @@ function App() {
           element={<div className="p-6 text-center">404 – Page not found</div>}
         />
       </Routes>
+
+      {/* 🚗 Booking animation overlay */}
+      {isBooking && (
+        <div className="car-loader">
+          <img src="/car.gif" alt="Booking in progress..." />
+        </div>
+      )}
     </div>
   );
 }

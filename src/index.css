@@ -1,14 +1,20 @@
 @import "tailwindcss";
-@keyframes carDrive {
-  0% {
-    transform: translateX(-150%);
-  }
-  100% {
-    transform: translateX(150%);
-  }
+.car-loader {
+  position: fixed;
+  bottom: 20px;
+  left: -100px;
+  width: 80px;
+  height: auto;
+  z-index: 50;
+  animation: drive 2.5s linear infinite;
+  pointer-events: none;
 }
 
-.animate-car-drive {
-  font-size: 3rem;
-  animation: carDrive 2s linear infinite;
+@keyframes drive {
+  0% {
+    left: -100px;
+  }
+  100% {
+    left: 100vw;
+  }
 }
