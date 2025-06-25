@@ -6,7 +6,7 @@ import { supabase } from "../../utils/supabaseClient";
 
 export default function Login() {
   useEffect(() => {
-    // Check URL for Supabase OAuth errors (e.g. from DB trigger domain rejection)
+    // Show toast if Supabase returns an OAuth error in the URL
     const url = new URL(window.location.href);
     const errorDescription = url.searchParams.get("error_description");
 
@@ -29,17 +29,19 @@ export default function Login() {
         });
       }
 
-      // Remove the error parameters from the URL so the toast only shows once
+      // Clean the URL after showing error once
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
   }, []);
 
   const handleLogin = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`; // Works for both localhost and production
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin, // Should match your Supabase redirect URLs
+        redirectTo,
       },
     });
 

@@ -24,29 +24,41 @@ function DateSelector({ selectedDate, onDateChange }) {
   };
 
   return (
-    <div className="px-6 mb-8 my-8">
-      <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-        <label className="block text-base font-semibold text-gray-800 mb-3">
-          📆 Choose Your Parking Date
-        </label>
+    <div className="px-6 my-10 flex justify-center">
+      <div className="w-full max-w-2xl bg-gradient-to-br from-white to-slate-50 p-6 md:p-8 rounded-3xl shadow-xl border border-gray-200 relative">
+        {/* Decorative Gradient Blur in Background */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-500 opacity-10 rounded-full blur-2xl z-0" />
 
-        <div className="relative">
-          <DatePicker
-            selected={selectedDate}
-            onChange={onDateChange}
-            filterDate={isDateSelectable}
-            minDate={today}
-            placeholderText="Select a date"
-            className="w-full pl-12 pr-4 py-3 rounded-md border border-gray-300 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all"
-          />
-          <CalendarDaysIcon className="h-6 w-6 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+        <div className="relative z-10">
+          {/* Heading with Icon */}
+          <div className="flex items-center space-x-3 mb-6">
+            <CalendarDaysIcon className="h-8 w-8 text-blue-600" />
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800">
+              Choose Your Parking Dates
+            </h2>
+          </div>
+
+          {/* Date Picker Input */}
+          <div className="relative mb-4">
+            <DatePicker
+              selected={selectedDate}
+              onChange={onDateChange}
+              filterDate={isDateSelectable}
+              minDate={today}
+              placeholderText="Select a date"
+              popperClassName="z-50"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 text-gray-700 text-base shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            />
+            <CalendarDaysIcon className="h-5 w-5 text-gray-400 absolute left-4 top-3.5 pointer-events-none" />
+          </div>
+
+          {/* Info Note */}
+          <p className="text-sm text-gray-500 leading-snug">
+            You can book any day within this month.
+            <br className="hidden sm:block" />
+            The next month becomes available during the final week.
+          </p>
         </div>
-
-        <p className="text-sm text-gray-500 mt-3 leading-snug">
-          You can book any day within this month.
-          <br />
-          The next month becomes available during the final week.
-        </p>
       </div>
     </div>
   );
