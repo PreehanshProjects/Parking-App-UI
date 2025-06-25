@@ -1,14 +1,27 @@
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL;
+// src/api/booking.js
 import { supabase } from "../utils/supabaseClient";
 
+const FUNCTION_URL_BASE = "https://fflgdynxowljjfjytyhd.functions.supabase.co";
+
+/**
+ * Retrieves the current user's access token from Supabase.
+ */
 export async function getToken() {
   const {
     data: { session },
+    error,
   } = await supabase.auth.getSession();
-  if (!session) throw new Error("User not authenticated");
+
+  if (error || !session) {
+    throw new Error("User not authenticated");
+  }
+
   return session.access_token;
 }
 
+/**
+ * Parses an error from a fetch response (handles both JSON and text bodies).
+ */
 async function parseError(response) {
   try {
     const json = await response.json();
@@ -18,10 +31,13 @@ async function parseError(response) {
   }
 }
 
+/**
+ * Books a parking spot for a specific date.
+ */
 export async function bookSpot(spotId, date) {
   const token = await getToken();
 
-  const response = await fetch(`${BACKEND_BASE_URL}/api/bookings/book`, {
+  const response = await fetch(`${FUNCTION_URL_BASE}/book-spot`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -31,34 +47,39 @@ export async function bookSpot(spotId, date) {
   });
 
   if (!response.ok) {
-    const errorMessage = await parseError(response);
-    throw new Error(errorMessage || "Failed to book spot");
+    throw new Error(await parseError(response));
   }
 
   return await response.json();
 }
 
+/**
+ * Gets bookings for current user.
+ */
 export async function getUserBookings() {
   const token = await getToken();
 
-  const response = await fetch(`${BACKEND_BASE_URL}/api/bookings/user`, {
+  const response = await fetch(`${FUNCTION_URL_BASE}/get-user-bookings`, {
+    method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 
   if (!response.ok) {
-    const errorMessage = await parseError(response);
-    throw new Error(errorMessage || "Failed to fetch user bookings");
+    throw new Error(await parseError(response));
   }
 
   return await response.json();
 }
 
+/**
+ * Cancels a booking.
+ */
 export async function cancelBooking(spotId, date) {
   const token = await getToken();
 
-  const response = await fetch(`${BACKEND_BASE_URL}/api/bookings/cancel`, {
+  const response = await fetch(`${FUNCTION_URL_BASE}/cancel-booking`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -68,8 +89,7 @@ export async function cancelBooking(spotId, date) {
   });
 
   if (!response.ok) {
-    const errorMessage = await parseError(response);
-    throw new Error(errorMessage || "Failed to cancel booking");
+    throw new Error(await parseError(response));
   }
 
   return await response.json();

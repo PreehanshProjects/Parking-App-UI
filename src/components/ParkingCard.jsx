@@ -25,7 +25,7 @@ function ParkingCard({ spot, onBook }) {
       ? "/images/underground.jpg"
       : null;
 
-  return (
+   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -88,9 +88,9 @@ function ParkingCard({ spot, onBook }) {
               className="mt-2"
             >
               <Chip
-                value="Booked"
+                value={`Booked${spot.bookedBy ? ` by ${spot.bookedBy}` : ""}`}
                 size="sm"
-                className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded-full"
+                className="bg-red-100 text-red-800 font-semibold px-3 py-1 rounded-full"
               />
             </motion.div>
           )}

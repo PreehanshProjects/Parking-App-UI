@@ -1,1 +1,14 @@
 @import "tailwindcss";
+@keyframes carDrive {
+  0% {
+    transform: translateX(-150%);
+  }
+  100% {
+    transform: translateX(150%);
+  }
+}
+
+.animate-car-drive {
+  font-size: 3rem;
+  animation: carDrive 2s linear infinite;
+}

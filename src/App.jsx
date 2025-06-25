@@ -40,6 +40,7 @@ function App() {
       setUserBookings([]);
       return;
     }
+
     try {
       const bookings = await getUserBookings();
       setUserBookings(bookings);
@@ -50,20 +51,16 @@ function App() {
   };
 
   useEffect(() => {
-    // Get initial session and clear OAuth URL hash if needed
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
       if (window.location.hash.startsWith("#access_token")) {
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
 
-    // Listen for auth state changes (login/logout)
+    // Listen to auth state change
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -73,36 +70,36 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // When session changes, fetch bookings
   useEffect(() => {
     fetchBookings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  // Update spots' booked state for selectedDate based on userBookings
+  // Update spots based on bookings for selected date
   useEffect(() => {
-    const bookedIds = userBookings
-      .filter(
-        (b) => new Date(b.date).toDateString() === selectedDate.toDateString()
-      )
-      .map((b) => b.spotId);
-
     setSpots(
-      initialSpots.map((spot) => ({
-        ...spot,
-        booked: bookedIds.includes(spot.id),
-      }))
+      initialSpots.map((spot) => {
+        const booking = userBookings.find(
+          (b) =>
+            b.spotId === spot.id &&
+            new Date(b.date).toDateString() === selectedDate.toDateString()
+        );
+
+        return {
+          ...spot,
+          booked: !!booking,
+          bookedBy: booking?.userEmail ?? null,
+          type: booking?.type ?? spot.type,
+        };
+      })
     );
   }, [userBookings, selectedDate]);
 
-  // Handle booking using backend API
   const handleBooking = async (spotId) => {
     if (!session) return toast.error("Please log in first.");
 
     const day = selectedDate.getDay();
     if (day === 0 || day === 6) return toast.error("Weekends not allowed.");
 
-    // Check if user already booked for selectedDate
     const hasBookingToday = userBookings.some(
       (b) =>
         b.userId === currentUser &&
@@ -136,16 +133,13 @@ function App() {
     try {
       const dateStr = selectedDate.toISOString().split("T")[0];
       await bookSpot(spotId, dateStr);
-
       toast.success("Booking successful!");
-      // Refresh bookings after successful booking
       await fetchBookings();
     } catch (error) {
       toast.error(error.message || "Booking failed.");
     }
   };
 
-  // Handle cancel booking using backend API
   const handleCancel = async (bookingToCancel) => {
     try {
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
