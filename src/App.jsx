@@ -15,16 +15,38 @@ import Login from "./components/Auth/Login";
 import DateSelector from "./components/DateSelector";
 import ParkingList from "./components/ParkingList";
 import BookingsPage from "./pages/BookingsPage";
+import QuickBooking from "./components/QuickBooking";
+import BookingSummaryModal from "./components/BookingSummaryModal";
 import { parkingSpots as initialSpots } from "./data/parkingSpots";
 import "./index.css";
 
-function MainPage({ spots, selectedDate, setSelectedDate, handleBooking }) {
+function MainPage({
+  spots,
+  selectedDate,
+  setSelectedDate,
+  handleBooking,
+  allBookings,
+  userBookings,
+  onQuickBookingResults,
+}) {
   return (
     <>
-      <DateSelector
-        selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-      />
+      <div className="flex flex-col lg:flex-row gap-6 px-6">
+        <div className="flex-1">
+          <DateSelector
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+          />
+        </div>
+        <div className="flex-1">
+          <QuickBooking
+            spots={spots}
+            allBookings={allBookings}
+            userBookings={userBookings}
+            onBookingComplete={onQuickBookingResults}
+          />
+        </div>
+      </div>
       <ParkingList spots={spots} onBook={handleBooking} />
     </>
   );
@@ -40,7 +62,9 @@ function App() {
   const [spots, setSpots] = useState(initialSpots);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const [isBooking, setIsBooking] = useState(false); // 🚗 Booking in progress flag
+  const [isBooking, setIsBooking] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false); // NEW
+  const [bookingResults, setBookingResults] = useState(null);
 
   const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
@@ -71,7 +95,11 @@ function App() {
       setLoading(false);
 
       if (window.location.hash.startsWith("#access_token")) {
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
       }
     });
 
@@ -124,7 +152,8 @@ function App() {
         b.userId === currentUser &&
         new Date(b.date).toDateString() === selectedDate.toDateString()
     );
-    if (hasBookingToday) return toast.error("Only one booking per day allowed.");
+    if (hasBookingToday)
+      return toast.error("Only one booking per day allowed.");
 
     const spot = spots.find((s) => s.id === spotId);
 
@@ -151,7 +180,7 @@ function App() {
     }
 
     try {
-      setIsBooking(true); // 🚗 Start animation
+      setIsBooking(true);
       const dateStr = selectedDate.toISOString().split("T")[0];
       await bookSpot(spotId, dateStr);
       toast.success("Booking successful!");
@@ -160,18 +189,21 @@ function App() {
     } catch (error) {
       toast.error(error.message || "Booking failed.");
     } finally {
-      setIsBooking(false); // 🛑 Stop animation
+      setIsBooking(false);
     }
   };
 
   const handleCancel = async (bookingToCancel) => {
     try {
+      setIsCancelling(true); // Show loading overlay
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
       toast.success("Booking cancelled.");
       await fetchUserBookings();
       await fetchAllBookings();
     } catch (error) {
       toast.error(error.message || "Failed to cancel booking.");
+    } finally {
+      setIsCancelling(false); // Hide loading overlay
     }
   };
 
@@ -184,7 +216,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 relative">
       <Toaster position="bottom-right" />
       <Navbar
         isLoggedIn={!!session}
@@ -202,6 +234,18 @@ function App() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 handleBooking={handleBooking}
+                allBookings={allBookings}
+                userBookings={userBookings}
+                onQuickBookingResults={async (rawResults) => {
+                  const summary = {
+                    success: rawResults.filter((r) => r.status === "booked"),
+                    failed: rawResults.filter((r) => r.status !== "booked"),
+                  };
+
+                  setBookingResults(summary);
+                  await fetchUserBookings();
+                  await fetchAllBookings();
+                }}
               />
             ) : (
               <Navigate to="/login" replace />
@@ -212,10 +256,7 @@ function App() {
           path="/bookings"
           element={
             session ? (
-              <BookingsPage
-                bookings={userBookings}
-                onCancel={handleCancel}
-              />
+              <BookingsPage bookings={userBookings} onCancel={handleCancel} />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -231,12 +272,27 @@ function App() {
         />
       </Routes>
 
-      {/* 🚗 Booking animation overlay */}
-      {isBooking && (
-        <div className="car-loader">
-          <img src="/car.gif" alt="Booking in progress..." />
+      {/* 🚗 Booking or cancellation animation overlay */}
+      {(isBooking || isCancelling) && (
+        <div
+          className="car-loader fixed inset-0 z-50 flex items-center justify-center"
+          style={{
+            pointerEvents: "all", // to block interactions under the overlay
+            backgroundColor: "transparent", // fully transparent
+          }}
+        >
+          <img
+            src="/car.gif"
+            alt="Processing..."
+            style={{ maxWidth: "150px" }}
+          />
         </div>
       )}
+
+      <BookingSummaryModal
+        results={bookingResults}
+        onClose={() => setBookingResults(null)}
+      />
     </div>
   );
 }

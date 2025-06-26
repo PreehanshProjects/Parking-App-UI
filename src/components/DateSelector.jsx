@@ -1,5 +1,6 @@
 import DatePicker from "react-datepicker";
-import { CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, ArrowDownIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
 import "react-datepicker/dist/react-datepicker.css";
 
 function DateSelector({ selectedDate, onDateChange }) {
@@ -23,13 +24,29 @@ function DateSelector({ selectedDate, onDateChange }) {
     return isCurrentMonth || isNextMonth;
   };
 
+  // Animated ticker texts
+  const tickerMessages = [
+    "Tip: Quick Booking saves you time ⏱️",
+    "Did you know? You can book multiple days at once!",
+    "Pro tip: Use the calendar icon for quick selections!",
+  ];
+
+  const [tickerIndex, setTickerIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTickerIndex((i) => (i + 1) % tickerMessages.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="px-6 my-10 flex justify-center">
-      <div className="w-full max-w-2xl bg-gradient-to-br from-white to-slate-50 p-6 md:p-8 rounded-3xl shadow-xl border border-gray-200 relative">
+      <div className="w-full max-w-2xl min-h-[420px] bg-gradient-to-br from-white to-slate-50 p-6 md:p-8 rounded-3xl shadow-xl border border-gray-200 relative overflow-hidden">
         {/* Decorative Gradient Blur in Background */}
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-500 opacity-10 rounded-full blur-2xl z-0" />
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col h-full">
           {/* Heading with Icon */}
           <div className="flex items-center space-x-3 mb-6">
             <CalendarDaysIcon className="h-8 w-8 text-blue-600" />
@@ -53,11 +70,49 @@ function DateSelector({ selectedDate, onDateChange }) {
           </div>
 
           {/* Info Note */}
-          <p className="text-sm text-gray-500 leading-snug">
+          <p className="text-sm text-gray-500 leading-snug mb-6">
             You can book any day within this month.
             <br className="hidden sm:block" />
             The next month becomes available during the final week.
           </p>
+
+          {/* Animated Ticker */}
+          <div className="flex items-center space-x-2 text-blue-600 font-semibold text-sm italic mb-6 select-none overflow-hidden">
+            <svg
+              className="h-5 w-5 animate-spin-slow"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v4m0 8v4m8-8h-4M4 12H0"
+              />
+            </svg>
+            <span
+              key={tickerIndex}
+              className="transition-opacity duration-500 ease-in-out"
+            >
+              {tickerMessages[tickerIndex]}
+            </span>
+          </div>
+
+          {/* Spacer to push the bottom glow bar down */}
+          <div className="flex-grow" />
+
+          {/* Modern bottom glow/gradient bar */}
+          <div
+            aria-hidden="true"
+            className="h-2 w-full rounded-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-70 animate-pulse"
+          />
+
+          {/* Bouncing arrow hint */}
+          <div className="flex justify-center mt-3">
+            <ArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce" />
+          </div>
         </div>
       </div>
     </div>

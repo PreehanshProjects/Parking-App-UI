@@ -128,3 +128,29 @@ export async function getAllBookings() {
 
   return await response.json();
 }
+
+/**
+ * Automatically books multiple dates according to availability and priority.
+ * @param {string[]} dates - Array of date strings (YYYY-MM-DD)
+ * @param {boolean} prioritizeUnderground
+ * @returns {Promise<Array>} Result for each date
+ */
+export async function quickBook(dates, prioritizeUnderground = false) {
+  const token = await getToken();
+
+  const response = await fetch(`${FUNCTION_URL_BASE}/quick-book`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ dates, prioritizeUnderground }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return await response.json(); // Expecting array of results: { date, status, [spotId] }
+}
+
