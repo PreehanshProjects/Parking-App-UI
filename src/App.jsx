@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { supabase } from "./utils/supabaseClient";
 
@@ -53,6 +53,7 @@ function MainPage({
 }
 
 function App() {
+  const location = useLocation(); // 👈 used to track current route
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,7 +64,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [isBooking, setIsBooking] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false); // NEW
+  const [isCancelling, setIsCancelling] = useState(false);
   const [bookingResults, setBookingResults] = useState(null);
 
   const currentUser = session?.user?.id ?? null;
@@ -94,6 +95,7 @@ function App() {
       setSession(session);
       setLoading(false);
 
+      // Clean URL hash after OAuth redirect
       if (window.location.hash.startsWith("#access_token")) {
         window.history.replaceState(
           {},
@@ -195,7 +197,7 @@ function App() {
 
   const handleCancel = async (bookingToCancel) => {
     try {
-      setIsCancelling(true); // Show loading overlay
+      setIsCancelling(true);
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
       toast.success("Booking cancelled.");
       await fetchUserBookings();
@@ -203,7 +205,7 @@ function App() {
     } catch (error) {
       toast.error(error.message || "Failed to cancel booking.");
     } finally {
-      setIsCancelling(false); // Hide loading overlay
+      setIsCancelling(false);
     }
   };
 
@@ -218,11 +220,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100 relative">
       <Toaster position="bottom-right" />
-      <Navbar
-        isLoggedIn={!!session}
-        userEmail={userEmail}
-        onLoginToggle={() => (session ? supabase.auth.signOut() : null)}
-      />
+
+      {/* ✅ Show Navbar only if NOT on login route */}
+      {location.pathname !== "/login" && (
+        <Navbar
+          isLoggedIn={!!session}
+          userEmail={userEmail}
+          onLoginToggle={() => (session ? supabase.auth.signOut() : null)}
+        />
+      )}
 
       <Routes>
         <Route
@@ -272,13 +278,13 @@ function App() {
         />
       </Routes>
 
-      {/* 🚗 Booking or cancellation animation overlay */}
+      {/* 🚗 Loading animation overlay */}
       {(isBooking || isCancelling) && (
         <div
           className="car-loader fixed inset-0 z-50 flex items-center justify-center"
           style={{
-            pointerEvents: "all", // to block interactions under the overlay
-            backgroundColor: "transparent", // fully transparent
+            pointerEvents: "all",
+            backgroundColor: "transparent",
           }}
         >
           <img

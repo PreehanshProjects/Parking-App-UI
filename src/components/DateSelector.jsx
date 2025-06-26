@@ -111,7 +111,7 @@ function DateSelector({ selectedDate, onDateChange }) {
 
           {/* Bouncing arrow hint */}
           <div className="flex justify-center mt-3">
-            <ArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce" />
+            <span className="text-2xl animate-bounce">🚙</span>
           </div>
         </div>
       </div>
