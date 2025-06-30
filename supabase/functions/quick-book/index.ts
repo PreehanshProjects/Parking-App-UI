@@ -35,9 +35,10 @@ serve(async (req) => {
     return new Response("Missing or invalid 'dates' array", { status: 400, headers: corsHeaders });
   }
 
+  // Fetch all bookings and all spots
   const { data: allBookings, error: fetchError } = await supabase
     .from("bookings")
-    .select("spot_id, booking_date");
+    .select("spot_id, booking_date, user_id");
 
   if (fetchError) {
     return new Response(`Error fetching bookings: ${fetchError.message}`, { status: 500, headers: corsHeaders });
@@ -51,15 +52,30 @@ serve(async (req) => {
     return new Response(`Error fetching spots: ${spotError.message}`, { status: 500, headers: corsHeaders });
   }
 
-  let undergroundCount = 0;
+  // Map for faster lookups
+  const spotTypeMap = Object.fromEntries(spots.map((s) => [s.id, s.type]));
+
+  // Filter this user's bookings
+  const userBookings = allBookings.filter((b) => b.user_id === user.id);
+
   const results: any[] = [];
   const inserts = [];
 
+  // Track how many underground bookings the user has in each week
+  const undergroundWeekMap: Record<string, number> = {};
+
+  function getWeekKey(dateStr: string): string {
+    const date = new Date(dateStr);
+    const day = date.getDay(); // Sunday = 0
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - diffToMonday);
+    return monday.toISOString().split("T")[0]; // use Monday as week key
+  }
+
   for (const isoDate of dates) {
     const alreadyBooked = allBookings.some(
-      (b) =>
-        b.booking_date === isoDate &&
-        b.user_id === user.id // Ensure it's by this user
+      (b) => b.booking_date === isoDate && b.user_id === user.id
     );
 
     if (alreadyBooked) {
@@ -76,9 +92,24 @@ serve(async (req) => {
       ? [...availableSpots].sort((a, b) => (a.type === "underground" ? -1 : 1))
       : availableSpots;
 
+    const weekKey = getWeekKey(isoDate);
+
+    // Count user's *existing* underground bookings in this week
+    const existingUndergroundsThisWeek = userBookings.filter((b) => {
+      const bWeek = getWeekKey(b.booking_date);
+      return bWeek === weekKey && spotTypeMap[b.spot_id] === "underground";
+    }).length;
+
+    // Track how many undergrounds we're booking in *this batch* for that week
+    const newUndergroundsThisWeek = undergroundWeekMap[weekKey] ?? 0;
+
     let booked = false;
+
     for (const spot of sortedSpots) {
-      if (spot.type === "underground" && undergroundCount >= 2) continue;
+      const isUnderground = spot.type === "underground";
+      const totalForWeek = existingUndergroundsThisWeek + newUndergroundsThisWeek;
+
+      if (isUnderground && totalForWeek >= 2) continue;
 
       inserts.push({
         spot_id: spot.id,
@@ -88,7 +119,10 @@ serve(async (req) => {
         created_at: new Date().toISOString(),
       });
 
-      if (spot.type === "underground") undergroundCount++;
+      if (isUnderground) {
+        undergroundWeekMap[weekKey] = newUndergroundsThisWeek + 1;
+      }
+
       results.push({ date: isoDate, spotId: spot.id, status: "booked" });
       booked = true;
       break;
