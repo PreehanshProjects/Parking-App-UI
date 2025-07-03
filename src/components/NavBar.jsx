@@ -35,11 +35,12 @@ function Navbar({ isLoggedIn, userEmail, onLoginToggle }) {
     <nav className="bg-white bg-opacity-70 backdrop-blur-md shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2">
-          <span className="text-2xl">🚗</span>
-          <span className="font-bold text-xl text-blue-700 select-none">
-            Parking Booking
-          </span>
+        <Link to="/" className="flex items-center">
+          <img
+            src="/images/logo-novity.png"
+            alt="Novity Logo"
+            className="h-10 w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop Menu */}
