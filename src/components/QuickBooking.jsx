@@ -23,14 +23,19 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
-  const currentDate = today.getDate();
 
   const isFinalWeek = () => {
     const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-    return currentDate >= lastDay - 6;
+    return today.getDate() >= lastDay - 6;
   };
 
-  const getDateForWeekday = (weekKey, dayIndex) => {
+  // Normalizes Sunday as 6, Monday as 0, ..., Saturday as 5
+  const getWeekdayIndex = (date) => {
+    const day = date.getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const getDateForWeekday = (weekKey, weekdayIndex) => {
     let baseMonth = selectedMonth === "current" ? currentMonth : currentMonth + 1;
     let baseYear = currentYear;
 
@@ -40,17 +45,17 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     }
 
     const firstOfMonth = new Date(baseYear, baseMonth, 1);
-    const firstDayOfWeek = firstOfMonth.getDay(); // Sunday = 0
+    const firstDay = firstOfMonth.getDay(); // Sunday = 0
 
-    const firstMondayOffset = firstDayOfWeek === 0 ? 1 : (8 - firstDayOfWeek) % 7;
-    const firstMonday = new Date(baseYear, baseMonth, 1 + firstMondayOffset);
+    const offsetToMonday = firstDay === 0 ? 1 : (8 - firstDay) % 7;
+    const firstMonday = new Date(baseYear, baseMonth, 1 + offsetToMonday);
 
     const weekIndex = weekOrder.indexOf(weekKey);
     const startOfWeek = new Date(firstMonday);
     startOfWeek.setDate(firstMonday.getDate() + weekIndex * 7);
 
     const targetDate = new Date(startOfWeek);
-    targetDate.setDate(startOfWeek.getDate() + dayIndex);
+    targetDate.setDate(startOfWeek.getDate() + weekdayIndex); // Monday = 0, Friday = 4
 
     return targetDate;
   };
@@ -74,7 +79,6 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
   const isWeekDisabled = (weekKey) => {
     if (selectedMonth !== "current") return false;
 
-    // Disable only if all days are in the past
     for (let i = 0; i < 5; i++) {
       const date = getDateForWeekday(weekKey, i);
       if (date >= today) return false;
@@ -84,10 +88,8 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
 
   const isDayDisabled = (day) => {
     if (!weeks.length) return true;
-
     const dayIndex = weekdays.indexOf(day);
 
-    // Check across all selected weeks
     return weeks.every((weekKey) => {
       const date = getDateForWeekday(weekKey, dayIndex);
       return (
