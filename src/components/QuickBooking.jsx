@@ -12,12 +12,7 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
   const [selectedMonth, setSelectedMonth] = useState("current");
 
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth();
-  const currentDate = today.getDate();
-
+  const weekOrder = ["first", "second", "third", "fourth"];
   const weekOffsets = {
     first: 0,
     second: 7,
@@ -25,30 +20,32 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     fourth: 21,
   };
 
-  // Check if we are in the last week of the current month
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentDate = today.getDate();
+
   const isFinalWeek = () => {
     const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
     return currentDate >= lastDay - 6;
   };
 
-  // Get actual Date object for a given week key and weekday index (0=Monday)
   const getDateForWeekday = (weekKey, dayIndex) => {
     let baseMonth = selectedMonth === "current" ? currentMonth : currentMonth + 1;
     let baseYear = currentYear;
 
     if (baseMonth > 11) {
-      baseMonth = baseMonth % 12;
+      baseMonth %= 12;
       baseYear += 1;
     }
 
     const firstOfMonth = new Date(baseYear, baseMonth, 1);
-    const firstDayOfWeek = firstOfMonth.getDay(); // Sunday=0
+    const firstDayOfWeek = firstOfMonth.getDay(); // Sunday = 0
 
-    // Calculate offset to first Monday
     const firstMondayOffset = firstDayOfWeek === 0 ? 1 : (8 - firstDayOfWeek) % 7;
     const firstMonday = new Date(baseYear, baseMonth, 1 + firstMondayOffset);
 
-    const weekIndex = Object.keys(weekOffsets).indexOf(weekKey);
+    const weekIndex = weekOrder.indexOf(weekKey);
     const startOfWeek = new Date(firstMonday);
     startOfWeek.setDate(firstMonday.getDate() + weekIndex * 7);
 
@@ -58,25 +55,6 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     return targetDate;
   };
 
-  // Disable week selection if week starts before today (only for current month)
-  const isWeekDisabled = (weekKey) => {
-    let baseMonth = selectedMonth === "current" ? currentMonth : currentMonth + 1;
-    let baseYear = currentYear;
-
-    if (baseMonth > 11) {
-      baseMonth = baseMonth % 12;
-      baseYear += 1;
-    }
-
-    const startDay = new Date(baseYear, baseMonth, 1 + weekOffsets[weekKey]);
-
-    if (selectedMonth === "current" && startDay < today && weekKey !== "fourth") {
-      return true;
-    }
-    return false;
-  };
-
-  // Check if the user already booked on this date
   const isAlreadyBooked = (date) => {
     const dateStr = date.toLocaleDateString("en-CA");
     return userBookings.some(
@@ -84,7 +62,6 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     );
   };
 
-  // Check if parking spots are available on this date
   const isParkingAvailable = (date) => {
     const dateStr = date.toLocaleDateString("en-CA");
     const totalSpots = spots.length;
@@ -94,41 +71,43 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     return bookedCount < totalSpots;
   };
 
-  // Determine if a day button should be disabled
-  const isDayDisabled = (day) => {
+  const isWeekDisabled = (weekKey) => {
     if (selectedMonth !== "current") return false;
 
-    // Adjust today’s weekday index so Monday=0 ... Friday=4
-    const adjustedTodayIndex = (today.getDay() + 6) % 7; 
-    const dayIndex = weekdays.indexOf(day);
-
-    // Disable if the day is before today in the current week
-    if (dayIndex < adjustedTodayIndex && adjustedTodayIndex <= 4) return true;
-
-    // Use the first selected week or default to 'first'
-    const firstWeekKey = weeks.length > 0 ? weeks[0] : "first";
-    const dayDate = getDateForWeekday(firstWeekKey, dayIndex);
-
-    if (isAlreadyBooked(dayDate)) return true;
-    if (!isParkingAvailable(dayDate)) return true;
-
-    return false;
+    // Disable only if all days are in the past
+    for (let i = 0; i < 5; i++) {
+      const date = getDateForWeekday(weekKey, i);
+      if (date >= today) return false;
+    }
+    return true;
   };
 
-  // Tooltip text explaining why a day is disabled
-  const getDayTooltip = (day) => {
-    if (selectedMonth !== "current") return "";
+  const isDayDisabled = (day) => {
+    if (!weeks.length) return true;
 
-    const adjustedTodayIndex = (today.getDay() + 6) % 7; 
     const dayIndex = weekdays.indexOf(day);
 
-    if (dayIndex < adjustedTodayIndex && adjustedTodayIndex <= 4) return "Date is in the past";
+    // Check across all selected weeks
+    return weeks.every((weekKey) => {
+      const date = getDateForWeekday(weekKey, dayIndex);
+      return (
+        date < today ||
+        isAlreadyBooked(date) ||
+        !isParkingAvailable(date)
+      );
+    });
+  };
 
-    const firstWeekKey = weeks.length > 0 ? weeks[0] : "first";
-    const dayDate = getDateForWeekday(firstWeekKey, dayIndex);
+  const getDayTooltip = (day) => {
+    if (!weeks.length) return "";
 
-    if (isAlreadyBooked(dayDate)) return "You have already booked this day";
-    if (!isParkingAvailable(dayDate)) return "No parking available";
+    const dayIndex = weekdays.indexOf(day);
+    const firstWeek = weeks[0];
+    const date = getDateForWeekday(firstWeek, dayIndex);
+
+    if (date < today) return "Date is in the past";
+    if (isAlreadyBooked(date)) return "You have already booked this day";
+    if (!isParkingAvailable(date)) return "No parking available";
 
     return "";
   };
@@ -147,42 +126,20 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
     );
   };
 
-  // Generate all selected dates from selected weeks and days
   const getTargetDates = () => {
     const allDates = [];
-    let baseMonth = selectedMonth === "current" ? currentMonth : currentMonth + 1;
-    let baseYear = currentYear;
-
-    if (baseMonth > 11) {
-      baseMonth = baseMonth % 12;
-      baseYear += 1;
-    }
-
-    const firstOfMonth = new Date(baseYear, baseMonth, 1);
-    const firstDay = firstOfMonth.getDay(); // Sunday = 0
-
-    const firstMondayOffset = firstDay === 0 ? 1 : (8 - firstDay) % 7;
-    const firstMonday = new Date(baseYear, baseMonth, 1 + firstMondayOffset);
 
     weeks.forEach((weekKey) => {
-      const weekIndex = Object.keys(weekOffsets).indexOf(weekKey);
-      const startOfWeek = new Date(firstMonday);
-      startOfWeek.setDate(firstMonday.getDate() + weekIndex * 7);
-
-      for (let i = 0; i < 5; i++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + i);
-        const weekdayName = weekdays[i];
-        if (days.includes(weekdayName)) {
-          allDates.push(date);
+      weekdays.forEach((weekday, i) => {
+        if (days.includes(weekday)) {
+          allDates.push(getDateForWeekday(weekKey, i));
         }
-      }
+      });
     });
 
     return allDates;
   };
 
-  // Handle the booking action
   const handleQuickBooking = async () => {
     if (!days.length) {
       toast.error("Please select at least one day.");
@@ -199,7 +156,6 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
       userBookings.map((b) => new Date(b.date).toLocaleDateString("en-CA"))
     );
 
-    // Filter out dates user already booked or no parking available (re-check here)
     const newDates = targetDates.filter((d) => {
       const dateStr = d.toLocaleDateString("en-CA");
       return !userBookedDates.has(dateStr) && isParkingAvailable(d);
@@ -270,7 +226,7 @@ function QuickBooking({ allBookings, userBookings, spots, onBookingComplete }) {
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">Select Weeks</label>
             <div className="flex gap-2 flex-wrap">
-              {Object.keys(weekOffsets).map((weekKey) => (
+              {weekOrder.map((weekKey) => (
                 <button
                   key={weekKey}
                   onClick={() => handleToggleWeek(weekKey)}
