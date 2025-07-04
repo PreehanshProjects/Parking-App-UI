@@ -5,8 +5,6 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { supabase } from "../../utils/supabaseClient";
 
-const FUNCTION_URL_BASE = "https://fflgdynxowljjfjytyhd.functions.supabase.co";
-
 export default function Login() {
   const [session, setSession] = useState(null);
 
@@ -44,46 +42,16 @@ export default function Login() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
-        insertUserIfNotExists(session.user);
-      }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
-        if (session) {
-          insertUserIfNotExists(session.user);
-        }
       }
     );
 
     return () => authListener.subscription.unsubscribe();
   }, []);
-
-  // Function to call your Supabase Edge Function 'add-user'
-  async function insertUserIfNotExists(user) {
-    try {
-      const token = (await supabase.auth.getSession()).data.session
-        .access_token;
-      const res = await fetch(`${FUNCTION_URL_BASE}/add-user`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        toast.error("Failed to sync user data: " + text);
-        console.error("Add user error:", text);
-      }
-    } catch (err) {
-      toast.error("Failed to sync user data.");
-      console.error("Add user exception:", err);
-    }
-  }
 
   // Start OAuth login flow
   const handleLogin = async () => {

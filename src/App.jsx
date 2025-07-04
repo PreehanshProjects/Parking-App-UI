@@ -12,6 +12,7 @@ import {
   cancelBooking,
 } from "./api/booking";
 import { getSpots } from "./api/spot";
+import { addUserIfNotExists } from "./api/admin"; // <-- Import here
 
 import Navbar from "./components/NavBar";
 import Login from "./components/Auth/Login";
@@ -98,6 +99,16 @@ function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Add user if not exists right after session is set
+  useEffect(() => {
+    if (session) {
+      addUserIfNotExists().catch((error) => {
+        console.error("Failed to add user if not exists:", error);
+        toast.error("Failed to sync user data.");
+      });
+    }
+  }, [session]);
 
   // Fetch data on login state change
   useEffect(() => {
