@@ -1,8 +1,6 @@
-/* eslint-disable no-unused-vars */
-// src/App.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Toaster, toast } from "react-hot-toast";
+import { Toaster } from "react-hot-toast";
 import { supabase } from "./utils/supabaseClient";
 
 import {
@@ -12,20 +10,20 @@ import {
   cancelBooking,
 } from "./api/booking";
 import { getSpots } from "./api/spot";
-import { addUserIfNotExists } from "./api/admin"; // <-- Import here
+import { addUserIfNotExists } from "./api/admin";
 
 import Navbar from "./components/NavBar";
 import Login from "./components/Auth/Login";
 import BookingsPage from "./pages/BookingsPage";
 import AdminPage from "./pages/AdminPage";
 import BookingSummaryModal from "./components/BookingSummaryModal";
-
 import MainPage from "./pages/MainPage";
 
 function App() {
   const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [userBookings, setUserBookings] = useState([]);
   const [allBookings, setAllBookings] = useState([]);
@@ -34,49 +32,42 @@ function App() {
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [bookingResults, setBookingResults] = useState(null);
+  const [loadingSpots, setLoadingSpots] = useState(false);
 
   const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
 
-  const [loadingSpots, setLoadingSpots] = useState(false);
-
-  // Fetch spots
   const fetchSpots = useCallback(async () => {
     setLoadingSpots(true);
     try {
       const spotsFromDb = await getSpots();
       setSpots(spotsFromDb);
-    } catch (error) {
-      console.error("Failed to fetch spots:", error);
-      toast.error("Failed to load parking spots.");
+    } catch {
+      // optional toast or silent fail
     } finally {
       setLoadingSpots(false);
     }
   }, []);
 
-  // Fetch all bookings
   const fetchAllBookings = useCallback(async () => {
     try {
       const bookings = await getAllBookings();
       setAllBookings(bookings);
-    } catch (error) {
-      console.error("Failed to fetch all bookings:", error);
-      toast.error("Could not load spot availability.");
+    } catch {
+      // optional toast or silent fail
     }
   }, []);
 
-  // Fetch user bookings
   const fetchUserBookings = useCallback(async () => {
     try {
       const bookings = await getUserBookings();
       setUserBookings(bookings);
-    } catch (error) {
-      console.error("Failed to fetch your bookings:", error);
-      toast.error("Could not load your bookings.");
+    } catch {
+      // optional toast or silent fail
     }
   }, []);
 
-  // Auth session and subscription on mount
+  // Auth session init
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -100,17 +91,19 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Add user if not exists right after session is set
+  // Add user and set admin flag
   useEffect(() => {
     if (session) {
-      addUserIfNotExists().catch((error) => {
-        console.error("Failed to add user if not exists:", error);
-        toast.error("Failed to sync user data.");
-      });
+      addUserIfNotExists()
+        .then((user) => {
+          setIsAdmin(!!user?.admin);
+        })
+        .catch(() => {
+          setIsAdmin(false); // Silent fallback
+        });
     }
   }, [session]);
 
-  // Fetch data on login state change
   useEffect(() => {
     if (session) {
       fetchSpots();
@@ -123,10 +116,9 @@ function App() {
     }
   }, [session, fetchSpots, fetchUserBookings, fetchAllBookings]);
 
-  // Update spots booked status
   useEffect(() => {
-    setSpots((prevSpots) =>
-      prevSpots.map((spot) => {
+    setSpots((prev) =>
+      prev.map((spot) => {
         const booking = allBookings.find(
           (b) =>
             b.spotId === spot.id &&
@@ -143,69 +135,58 @@ function App() {
     );
   }, [allBookings, selectedDate]);
 
-  // Booking handler
   const handleBooking = async (spotId) => {
-    if (!session) return toast.error("Please log in first.");
+    if (!session) return;
 
     const day = selectedDate.getDay();
-    if (day === 0 || day === 6) return toast.error("Weekends not allowed.");
+    if (day === 0 || day === 6) return;
 
     const hasBookingToday = userBookings.some(
       (b) =>
         b.userId === currentUser &&
         new Date(b.date).toDateString() === selectedDate.toDateString()
     );
-    if (hasBookingToday)
-      return toast.error("Only one booking per day allowed.");
+    if (hasBookingToday) return;
 
     const spot = spots.find((s) => s.id === spotId);
+    if (!spot) return;
 
     if (spot.type === "underground") {
       const weekStart = new Date(selectedDate);
-      const dayOffset = selectedDate.getDay();
-      weekStart.setDate(weekStart.getDate() - dayOffset);
+      weekStart.setDate(weekStart.getDate() - selectedDate.getDay());
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
-      const undergroundBookingsThisWeek = userBookings.filter((b) => {
-        const bookingDate = new Date(b.date);
+      const undergroundBookings = userBookings.filter((b) => {
+        const d = new Date(b.date);
         return (
           b.userId === currentUser &&
           b.type === "underground" &&
-          bookingDate >= weekStart &&
-          bookingDate <= weekEnd
+          d >= weekStart &&
+          d <= weekEnd
         );
       });
 
-      if (undergroundBookingsThisWeek.length >= 2) {
-        return toast.error("Max 2 underground bookings per week.");
-      }
+      if (undergroundBookings.length >= 2) return;
     }
 
     try {
       setIsBooking(true);
       const dateStr = selectedDate.toISOString().split("T")[0];
       await bookSpot(spotId, dateStr);
-      toast.success("Booking successful!");
       await fetchUserBookings();
       await fetchAllBookings();
-    } catch (error) {
-      toast.error(error.message || "Booking failed.");
     } finally {
       setIsBooking(false);
     }
   };
 
-  // Cancel booking handler
   const handleCancel = async (bookingToCancel) => {
     try {
       setIsCancelling(true);
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
-      toast.success("Booking cancelled.");
       await fetchUserBookings();
       await fetchAllBookings();
-    } catch (error) {
-      toast.error(error.message || "Failed to cancel booking.");
     } finally {
       setIsCancelling(false);
     }
@@ -227,6 +208,7 @@ function App() {
         <Navbar
           isLoggedIn={!!session}
           userEmail={userEmail}
+          isAdmin={isAdmin}
           onLoginToggle={() => (session ? supabase.auth.signOut() : null)}
         />
       )}
@@ -237,18 +219,20 @@ function App() {
           element={
             session ? (
               <MainPage
-                spots={spots}
+                spots={spots.filter((spot) => {
+                  // Hide "special" spots unless user is admin
+                  return spot.type !== "special" || isAdmin;
+                })}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 handleBooking={handleBooking}
                 allBookings={allBookings}
                 userBookings={userBookings}
-                onQuickBookingResults={async (rawResults) => {
+                onQuickBookingResults={async (results) => {
                   const summary = {
-                    success: rawResults.filter((r) => r.status === "booked"),
-                    failed: rawResults.filter((r) => r.status !== "booked"),
+                    success: results.filter((r) => r.status === "booked"),
+                    failed: results.filter((r) => r.status !== "booked"),
                   };
-
                   setBookingResults(summary);
                   await fetchUserBookings();
                   await fetchAllBookings();
@@ -259,17 +243,18 @@ function App() {
             )
           }
         />
+
         <Route
           path="/admin"
           element={
-            session ? (
+            session && isAdmin ? (
               <AdminPage
                 spots={spots}
                 fetchSpots={fetchSpots}
                 loading={loadingSpots}
               />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           }
         />
@@ -284,10 +269,12 @@ function App() {
             )
           }
         />
+
         <Route
           path="/login"
           element={session ? <Navigate to="/" replace /> : <Login />}
         />
+
         <Route
           path="*"
           element={<div className="p-6 text-center">404 – Page not found</div>}
@@ -295,13 +282,7 @@ function App() {
       </Routes>
 
       {(isBooking || isCancelling) && (
-        <div
-          className="car-loader fixed inset-0 z-50 flex items-center justify-center"
-          style={{
-            pointerEvents: "all",
-            backgroundColor: "transparent",
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-50">
           <img
             src="/car.gif"
             alt="Processing..."

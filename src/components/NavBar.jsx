@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
-
 import {
   HomeIcon,
   CalendarIcon,
@@ -13,7 +12,7 @@ import {
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
-function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
+function Navbar({ isLoggedIn, isAdmin, userEmail, onLoginToggle }) {
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -23,7 +22,11 @@ function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
   };
 
   const navLinks = [
-    { href: "/", label: "Home", icon: <HomeIcon className="w-5 h-5" /> },
+    {
+      href: "/",
+      label: "Home",
+      icon: <HomeIcon className="w-5 h-5" />,
+    },
     {
       href: "/bookings",
       label: "My Bookings",
@@ -40,6 +43,23 @@ function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
       : []),
   ];
 
+  const renderNavLinks = () =>
+    navLinks.map(({ href, label, icon }) => (
+      <Link
+        key={href}
+        to={href}
+        onClick={() => setMobileMenuOpen(false)}
+        className={`flex items-center gap-1 text-gray-700 hover:text-blue-700 transition-colors duration-200 font-medium ${
+          pathname === href
+            ? "text-blue-700 border-b-2 border-blue-700 pb-0.5"
+            : ""
+        }`}
+      >
+        {icon}
+        <span>{label}</span>
+      </Link>
+    ));
+
   return (
     <nav className="bg-white bg-opacity-70 backdrop-blur-md shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -54,20 +74,7 @@ function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center space-x-6">
-          {navLinks.map(({ href, label, icon }) => (
-            <Link
-              key={href}
-              to={href}
-              className={`flex items-center gap-1 text-gray-700 hover:text-blue-700 transition-colors duration-200 font-medium ${
-                pathname === href
-                  ? "text-blue-700 border-b-2 border-blue-700 pb-0.5"
-                  : ""
-              }`}
-            >
-              {icon}
-              <span>{label}</span>
-            </Link>
-          ))}
+          {renderNavLinks()}
 
           {isLoggedIn && userEmail && (
             <div className="flex items-center space-x-2 text-gray-600 italic text-sm max-w-xs truncate">
@@ -95,7 +102,7 @@ function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile Toggle Button */}
         <button
           className="md:hidden p-2 rounded-md text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -112,21 +119,7 @@ function Navbar({ isLoggedIn, isAdmin = true, userEmail, onLoginToggle }) {
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white bg-opacity-95 backdrop-blur-md shadow-inner px-6 py-4 space-y-4">
-          {navLinks.map(({ href, label, icon }) => (
-            <Link
-              key={href}
-              to={href}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2 text-gray-700 hover:text-blue-700 font-medium transition ${
-                pathname === href
-                  ? "text-blue-700 border-l-4 border-blue-700 pl-2"
-                  : ""
-              }`}
-            >
-              {icon}
-              <span>{label}</span>
-            </Link>
-          ))}
+          {renderNavLinks()}
 
           {isLoggedIn && userEmail && (
             <div className="flex items-center space-x-2 text-gray-600 italic text-sm truncate">
