@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import { supabase } from "./utils/supabaseClient";
 
 import {
@@ -21,13 +21,19 @@ import MainPage from "./pages/MainPage";
 
 function App() {
   const location = useLocation();
+
+  // Raw spots fetched from DB (without booking info)
+  const [rawSpots, setRawSpots] = useState([]);
+  // Spots merged with booking info
+  const [spots, setSpots] = useState([]);
+
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [userBookings, setUserBookings] = useState([]);
   const [allBookings, setAllBookings] = useState([]);
-  const [spots, setSpots] = useState([]);
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -37,42 +43,75 @@ function App() {
   const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
 
+  // Fetch raw spots only
   const fetchSpots = useCallback(async () => {
     setLoadingSpots(true);
     try {
       const spotsFromDb = await getSpots();
-      setSpots(spotsFromDb);
-    } catch {
-      // optional toast or silent fail
+      setRawSpots(spotsFromDb);
+    } catch (error) {
+      console.error("Failed to fetch spots:", error);
+      toast.error("Failed to load parking spots.");
     } finally {
       setLoadingSpots(false);
     }
   }, []);
 
+  // Fetch all bookings
   const fetchAllBookings = useCallback(async () => {
     try {
       const bookings = await getAllBookings();
       setAllBookings(bookings);
-    } catch {
-      // optional toast or silent fail
+    } catch (error) {
+      console.error("Failed to fetch all bookings:", error);
+      toast.error("Could not load spot availability.");
     }
   }, []);
 
+  // Fetch current user bookings
   const fetchUserBookings = useCallback(async () => {
     try {
       const bookings = await getUserBookings();
       setUserBookings(bookings);
-    } catch {
-      // optional toast or silent fail
+    } catch (error) {
+      console.error("Failed to fetch user bookings:", error);
+      toast.error("Could not load your bookings.");
     }
   }, []);
 
-  // Auth session init
+  // Update spots with booking info whenever raw spots, allBookings, or selectedDate changes
+  useEffect(() => {
+    if (rawSpots.length === 0) {
+      setSpots([]); // no spots loaded yet
+      return;
+    }
+
+    // Map spots with booking status for selected date
+    const updatedSpots = rawSpots.map((spot) => {
+      const booking = allBookings.find(
+        (b) =>
+          b.spotId === spot.id &&
+          new Date(b.date).toDateString() === selectedDate.toDateString()
+      );
+
+      return {
+        ...spot,
+        booked: !!booking,
+        bookedBy: booking?.userEmail ?? null,
+        type: booking?.type ?? spot.type,
+      };
+    });
+
+    setSpots(updatedSpots);
+  }, [rawSpots, allBookings, selectedDate]);
+
+  // Handle initial auth session and subscription
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
 
+      // Clear hash after OAuth redirect
       if (window.location.hash.startsWith("#access_token")) {
         window.history.replaceState(
           {},
@@ -91,65 +130,58 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Add user and set admin flag
+  // Add user if not exists and get admin flag
   useEffect(() => {
     if (session) {
       addUserIfNotExists()
-        .then((user) => {
-          setIsAdmin(!!user?.admin);
-        })
-        .catch(() => {
-          setIsAdmin(false); // Silent fallback
+        .then((user) => setIsAdmin(!!user?.admin))
+        .catch((err) => {
+          console.error("User sync failed:", err);
+          toast.error("Failed to sync user data.");
+          setIsAdmin(false);
         });
+    } else {
+      setIsAdmin(false);
     }
   }, [session]);
 
+  // Fetch spots and bookings when session changes (login/logout)
   useEffect(() => {
     if (session) {
-      fetchSpots();
-      fetchUserBookings();
-      fetchAllBookings();
+      // Fetch all in parallel, but only update merged spots after both loaded
+      Promise.all([
+        fetchSpots(),
+        fetchUserBookings(),
+        fetchAllBookings(),
+      ]).catch((err) => {
+        console.error("Error loading initial data:", err);
+        toast.error("Failed to load initial data.");
+      });
     } else {
-      setSpots([]);
+      // Reset all data on logout
+      setRawSpots([]);
       setUserBookings([]);
       setAllBookings([]);
     }
   }, [session, fetchSpots, fetchUserBookings, fetchAllBookings]);
 
-  useEffect(() => {
-    setSpots((prev) =>
-      prev.map((spot) => {
-        const booking = allBookings.find(
-          (b) =>
-            b.spotId === spot.id &&
-            new Date(b.date).toDateString() === selectedDate.toDateString()
-        );
-
-        return {
-          ...spot,
-          booked: !!booking,
-          bookedBy: booking?.userEmail ?? null,
-          type: booking?.type ?? spot.type,
-        };
-      })
-    );
-  }, [allBookings, selectedDate]);
-
+  // Booking handler with proper validation + toasts
   const handleBooking = async (spotId) => {
-    if (!session) return;
+    if (!session) return toast.error("Please log in first.");
 
     const day = selectedDate.getDay();
-    if (day === 0 || day === 6) return;
+    if (day === 0 || day === 6) return toast.error("Weekends not allowed.");
 
     const hasBookingToday = userBookings.some(
       (b) =>
         b.userId === currentUser &&
         new Date(b.date).toDateString() === selectedDate.toDateString()
     );
-    if (hasBookingToday) return;
+    if (hasBookingToday)
+      return toast.error("Only one booking per day allowed.");
 
     const spot = spots.find((s) => s.id === spotId);
-    if (!spot) return;
+    if (!spot) return toast.error("Spot not found.");
 
     if (spot.type === "underground") {
       const weekStart = new Date(selectedDate);
@@ -167,26 +199,34 @@ function App() {
         );
       });
 
-      if (undergroundBookings.length >= 2) return;
+      if (undergroundBookings.length >= 2)
+        return toast.error("Max 2 underground bookings per week.");
     }
 
     try {
       setIsBooking(true);
       const dateStr = selectedDate.toISOString().split("T")[0];
       await bookSpot(spotId, dateStr);
+      toast.success("Booking successful!");
       await fetchUserBookings();
       await fetchAllBookings();
+    } catch (error) {
+      toast.error(error.message || "Booking failed.");
     } finally {
       setIsBooking(false);
     }
   };
 
+  // Cancel booking handler
   const handleCancel = async (bookingToCancel) => {
     try {
       setIsCancelling(true);
       await cancelBooking(bookingToCancel.spotId, bookingToCancel.date);
+      toast.success("Booking cancelled.");
       await fetchUserBookings();
       await fetchAllBookings();
+    } catch (error) {
+      toast.error(error.message || "Failed to cancel booking.");
     } finally {
       setIsCancelling(false);
     }
@@ -220,7 +260,6 @@ function App() {
             session ? (
               <MainPage
                 spots={spots.filter((spot) => {
-                  // Hide "special" spots unless user is admin
                   return spot.type !== "special" || isAdmin;
                 })}
                 selectedDate={selectedDate}
@@ -282,7 +321,7 @@ function App() {
       </Routes>
 
       {(isBooking || isCancelling) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-50">
+        <div className="car-loader fixed inset-0 z-50 flex items-center justify-center bg-transparent">
           <img
             src="/car.gif"
             alt="Processing..."
