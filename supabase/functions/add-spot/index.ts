@@ -22,14 +22,14 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  let body: { location?: string; type?: string; code?: string };
+  let body: { location?: string; type?: string; code?: string; available_date?: string };
   try {
     body = await req.json();
   } catch {
     return new Response("Invalid JSON body", { status: 400, headers: corsHeaders });
   }
 
-  const { location, type, code } = body;
+  const { location, type, code, available_date } = body;
 
   if (!location || !type || !code) {
     return new Response("Missing 'location', 'type' or 'code'", {
@@ -38,9 +38,15 @@ serve(async (req) => {
     });
   }
 
+  const insertData: any = { location, type, code };
+
+  if (type === "guest" && available_date) {
+    insertData.available_date = available_date;
+  }
+
   const { data, error } = await supabase
     .from("spots")
-    .insert([{ location, type, code }])
+    .insert([insertData])
     .select()
     .single();
 

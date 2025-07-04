@@ -6,12 +6,14 @@ import {
   MapPinIcon,
   BuildingOffice2Icon,
   HashtagIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/solid";
 
 export default function AddSpotForm({ onSpotAdded }) {
   const [location, setLocation] = useState("");
   const [type, setType] = useState("outside");
   const [code, setCode] = useState("");
+  const [guestDate, setGuestDate] = useState("");
   const [adding, setAdding] = useState(false);
 
   const handleAdd = async () => {
@@ -19,13 +21,19 @@ export default function AddSpotForm({ onSpotAdded }) {
       return toast.error("All fields are required.");
     }
 
+    if (type === "guest" && !guestDate) {
+      return toast.error("Please select a date for guest spot.");
+    }
+
     setAdding(true);
     try {
-      await addSpot(location.trim(), type, code.trim());
+      // You can modify `addSpot` to handle the guestDate if needed
+      await addSpot(location.trim(), type, code.trim(), guestDate || null);
       toast.success("Spot added.");
       setLocation("");
       setType("outside");
       setCode("");
+      setGuestDate("");
       onSpotAdded();
     } catch (err) {
       toast.error(err.message || "Failed to add spot");
@@ -84,6 +92,20 @@ export default function AddSpotForm({ onSpotAdded }) {
           disabled={adding}
         />
       </div>
+
+      {/* Guest Date Input (only if guest selected) */}
+      {type === "guest" && (
+        <div className="relative mb-4">
+          <CalendarDaysIcon className="w-5 h-5 text-gray-400 absolute top-3 left-3" />
+          <input
+            type="date"
+            value={guestDate}
+            onChange={(e) => setGuestDate(e.target.value)}
+            className="appearance-none pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm text-gray-700"
+            disabled={adding}
+          />
+        </div>
+      )}
 
       <button
         onClick={handleAdd}

@@ -67,7 +67,7 @@ export async function getSpots() {
  * @param {string} code
  * @returns {Promise<Object>} The created spot
  */
-export async function addSpot(location, type, code) {
+export async function addSpot(location, type, code, available_date = null) {
   const token = await getToken();
 
   const response = await fetch(`${FUNCTION_URL_BASE}/add-spot`, {
@@ -76,7 +76,7 @@ export async function addSpot(location, type, code) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ location, type, code }),
+    body: JSON.stringify({ location, type, code, available_date }),
   });
 
   if (!response.ok) {

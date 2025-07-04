@@ -87,20 +87,34 @@ function App() {
     }
 
     // Map spots with booking status for selected date
-    const updatedSpots = rawSpots.map((spot) => {
-      const booking = allBookings.find(
-        (b) =>
-          b.spotId === spot.id &&
-          new Date(b.date).toDateString() === selectedDate.toDateString()
-      );
+    const updatedSpots = rawSpots
+      .filter((spot) => {
+        if (spot.type !== "guest") return true;
 
-      return {
-        ...spot,
-        booked: !!booking,
-        bookedBy: booking?.userEmail ?? null,
-        type: booking?.type ?? spot.type,
-      };
-    });
+        // If guest spot has a date, show it only on that day
+        if (spot.available_date) {
+          const available = new Date(spot.available_date).toDateString();
+          const selected = selectedDate.toDateString();
+          return available === selected;
+        }
+
+        // If no available_date (edge case), don't show guest spots
+        return false;
+      })
+      .map((spot) => {
+        const booking = allBookings.find(
+          (b) =>
+            b.spotId === spot.id &&
+            new Date(b.date).toDateString() === selectedDate.toDateString()
+        );
+
+        return {
+          ...spot,
+          booked: !!booking,
+          bookedBy: booking?.userEmail ?? null,
+          type: booking?.type ?? spot.type,
+        };
+      });
 
     setSpots(updatedSpots);
   }, [rawSpots, allBookings, selectedDate]);
