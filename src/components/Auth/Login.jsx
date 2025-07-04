@@ -1,10 +1,16 @@
-import React, { useEffect } from "react";
+/* eslint-disable no-unused-vars */
+import React, { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { supabase } from "../../utils/supabaseClient";
 
+const FUNCTION_URL_BASE = "https://fflgdynxowljjfjytyhd.functions.supabase.co";
+
 export default function Login() {
+  const [session, setSession] = useState(null);
+
+  // Check for OAuth error message on load (redirect error)
   useEffect(() => {
     const url = new URL(window.location.href);
     const errorDescription = url.searchParams.get("error_description");
@@ -28,19 +34,64 @@ export default function Login() {
         });
       }
 
+      // Clean URL to remove error params
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
   }, []);
 
+  // On mount, check if user session exists (handles redirect login)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        insertUserIfNotExists(session.user);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        if (session) {
+          insertUserIfNotExists(session.user);
+        }
+      }
+    );
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
+  // Function to call your Supabase Edge Function 'add-user'
+  async function insertUserIfNotExists(user) {
+    try {
+      const token = (await supabase.auth.getSession()).data.session
+        .access_token;
+      const res = await fetch(`${FUNCTION_URL_BASE}/add-user`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        toast.error("Failed to sync user data: " + text);
+        console.error("Add user error:", text);
+      }
+    } catch (err) {
+      toast.error("Failed to sync user data.");
+      console.error("Add user exception:", err);
+    }
+  }
+
+  // Start OAuth login flow
   const handleLogin = async () => {
     const redirectTo = `${window.location.origin}`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo,
-      },
+      options: { redirectTo },
     });
 
     if (error) {
