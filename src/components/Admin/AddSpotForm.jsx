@@ -66,6 +66,8 @@ export default function AddSpotForm({ onSpotAdded }) {
           >
             <option value="outside">Outside</option>
             <option value="underground">Underground</option>
+            <option value="special">Special</option>
+            <option value="guest">Guest</option>
           </select>
         </div>
       </div>

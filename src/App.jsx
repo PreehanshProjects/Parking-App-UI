@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/App.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
@@ -36,14 +37,19 @@ function App() {
   const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
 
+  const [loadingSpots, setLoadingSpots] = useState(false);
+
   // Fetch spots
   const fetchSpots = useCallback(async () => {
+    setLoadingSpots(true);
     try {
       const spotsFromDb = await getSpots();
       setSpots(spotsFromDb);
     } catch (error) {
       console.error("Failed to fetch spots:", error);
       toast.error("Failed to load parking spots.");
+    } finally {
+      setLoadingSpots(false);
     }
   }, []);
 
@@ -244,8 +250,19 @@ function App() {
         />
         <Route
           path="/admin"
-          element={session ? <AdminPage /> : <Navigate to="/login" replace />}
+          element={
+            session ? (
+              <AdminPage
+                spots={spots}
+                fetchSpots={fetchSpots}
+                loading={loadingSpots}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
+
         <Route
           path="/bookings"
           element={

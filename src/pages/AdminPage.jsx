@@ -1,41 +1,29 @@
 /* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
-import { getSpots } from "../api/spot";
-import { toast } from "react-hot-toast";
 import AddSpotForm from "../components/Admin/AddSpotForm";
 import SpotList from "../components/Admin/SpotList";
 
 // Import icons from Heroicons
 import {
-  Squares2X2Icon, // for All
-  BuildingOffice2Icon, // for Outside (office building)
-  CubeTransparentIcon, // for Underground (box/underground)
+  Squares2X2Icon, // All
+  BuildingOffice2Icon, // Outside
+  CubeTransparentIcon, // Underground
+  StarIcon, // Special
+  UserGroupIcon, // Guest
 } from "@heroicons/react/24/outline";
 
-export default function AdminPage() {
-  const [spots, setSpots] = useState([]);
-  const [loading, setLoading] = useState(false);
+export default function AdminPage({ spots, fetchSpots, loading }) {
   const [filter, setFilter] = useState("all");
 
-  const fetchSpots = async () => {
-    setLoading(true);
-    try {
-      const data = await getSpots();
-      setSpots(data);
-    } catch (err) {
-      toast.error("Failed to load spots");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchSpots();
-  }, []);
+    fetchSpots(); // Fetch spots on mount from the parent
+  }, [fetchSpots]);
 
-  const filteredSpots = spots.filter((spot) => {
+  const filteredSpots = (spots || []).filter((spot) => {
     if (filter === "outside") return spot.type === "outside";
     if (filter === "underground") return spot.type === "underground";
+    if (filter === "special") return spot.type === "special";
+    if (filter === "guest") return spot.type === "guest";
     return true;
   });
 
@@ -47,46 +35,38 @@ export default function AdminPage() {
 
       <AddSpotForm onSpotAdded={fetchSpots} />
 
-      {/* Filter Buttons — placed just above SpotList */}
-      <div className="flex justify-center mb-6 gap-4">
-        <button
+      {/* Filter Buttons */}
+      <div className="flex justify-center mb-6 gap-4 flex-wrap">
+        <FilterButton
+          label="All"
+          icon={Squares2X2Icon}
+          isActive={filter === "all"}
           onClick={() => setFilter("all")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "all"
-              ? "bg-blue-600 text-white shadow"
-              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-          }`}
-          aria-label="Show all spots"
-        >
-          <Squares2X2Icon className="h-5 w-5" />
-          All
-        </button>
-
-        <button
+        />
+        <FilterButton
+          label="Outside"
+          icon={BuildingOffice2Icon}
+          isActive={filter === "outside"}
           onClick={() => setFilter("outside")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "outside"
-              ? "bg-blue-600 text-white shadow"
-              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-          }`}
-          aria-label="Show outside spots"
-        >
-          <BuildingOffice2Icon className="h-5 w-5" />
-          Outside
-        </button>
-
-        <button
+        />
+        <FilterButton
+          label="Underground"
+          icon={CubeTransparentIcon}
+          isActive={filter === "underground"}
           onClick={() => setFilter("underground")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "underground"
-              ? "bg-blue-600 text-white shadow"
-              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-          }`}
-          aria-label="Show underground spots"
-        >
-          <CubeTransparentIcon className="h-5 w-5" />
-          Underground
-        </button>
+        />
+        <FilterButton
+          label="Special"
+          icon={StarIcon}
+          isActive={filter === "special"}
+          onClick={() => setFilter("special")}
+        />
+        <FilterButton
+          label="Guest"
+          icon={UserGroupIcon}
+          isActive={filter === "guest"}
+          onClick={() => setFilter("guest")}
+        />
       </div>
 
       <SpotList
@@ -95,5 +75,23 @@ export default function AdminPage() {
         onDeleted={fetchSpots}
       />
     </div>
+  );
+}
+
+// 💡 Reusable FilterButton Component
+function FilterButton({ label, icon: Icon, isActive, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
+        isActive
+          ? "bg-blue-600 text-white shadow"
+          : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+      }`}
+      aria-label={`Show ${label.toLowerCase()} spots`}
+    >
+      <Icon className="h-5 w-5" />
+      {label}
+    </button>
   );
 }

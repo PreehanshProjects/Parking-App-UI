@@ -44,7 +44,7 @@ async function parseError(response) {
  * @param {string} spotCode
  * @param {string} date - ISO string (YYYY-MM-DD)
  */
-export async function bookSpot(spotCode, date) {
+export async function bookSpot(spotId, date) {
   const token = await getToken();
 
   const response = await fetch(`${FUNCTION_URL_BASE}/book-spot`, {
@@ -53,7 +53,7 @@ export async function bookSpot(spotCode, date) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ spotCode, date }),
+    body: JSON.stringify({ spotId, date }), // send spotId here
   });
 
   if (!response.ok) {

@@ -23,6 +23,10 @@ function ParkingCard({ spot, onBook }) {
       ? "/images/outside.jpg"
       : spot.type === "underground"
       ? "/images/underground.jpg"
+      : spot.type === "special"
+      ? "/images/special.jpg"
+      : spot.type === "guest"
+      ? "/images/guest.jpg"
       : null;
 
   return (
