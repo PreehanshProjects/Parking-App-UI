@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { supabase, getUser } from "../_shared/supabase.ts";
 
-// CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -9,18 +8,15 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // Auth
   const { user, error: userError } = await getUser(req);
   if (userError || !user) {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  // Parse body
   let body;
   try {
     body = await req.json();
@@ -37,12 +33,26 @@ serve(async (req) => {
     });
   }
 
-  // Delete booking
+  // Lookup spot ID by code
+  const { data: spot, error: spotError } = await supabase
+    .from("spots")
+    .select("id")
+    .eq("id", spotId)
+    .single();
+
+  if (spotError || !spot) {
+    return new Response("Invalid spot code: spot does not exist", {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  // Delete booking by user, spot_id, and date
   const { error: deleteError } = await supabase
     .from("bookings")
     .delete()
     .eq("user_id", user.id)
-    .eq("spot_id", spotId)
+    .eq("spot_id", spot.id)
     .eq("booking_date", date);
 
   if (deleteError) {

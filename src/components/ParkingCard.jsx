@@ -25,7 +25,7 @@ function ParkingCard({ spot, onBook }) {
       ? "/images/underground.jpg"
       : null;
 
-   return (
+  return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -59,7 +59,7 @@ function ParkingCard({ spot, onBook }) {
         <CardBody className="flex flex-col gap-4 flex-grow p-5 text-black">
           <div className="flex justify-between items-center">
             <Typography variant="h6" className="font-bold text-gray-900">
-              Parking #{spot.id}
+              Parking #{spot.code}
             </Typography>
             {!isBooked ? (
               <CheckCircleIcon className="h-6 w-6 text-green-500" />

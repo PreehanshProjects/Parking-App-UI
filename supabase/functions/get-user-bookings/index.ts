@@ -23,14 +23,14 @@ serve(async (req) => {
     });
   }
 
-  // Fetch bookings + spot type
+  // Fetch bookings + spot type + code
   const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
     .select(`
       id,
       spot_id,
       booking_date,
-      spots(type)
+      spots(type, code)
     `)
     .eq("user_id", user.id);
 
@@ -41,10 +41,11 @@ serve(async (req) => {
     });
   }
 
-  // Transform response to include userId, userEmail, spotId, type
+  // Transform response to include spotCode along with other fields
   const transformed = bookings.map((b) => ({
     id: b.id,
     spotId: b.spot_id,
+    spotCode: b.spots?.code ?? null,
     date: b.booking_date,
     type: b.spots?.type ?? "unknown",
     userId: user.id,

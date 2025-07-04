@@ -27,7 +27,7 @@ function BookingSummaryModal({ results, onClose }) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-30 transition-opacity" />
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" />
         </Transition.Child>
 
         <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -50,14 +50,19 @@ function BookingSummaryModal({ results, onClose }) {
                   <div>
                     <div className="flex items-center text-green-600 mb-2">
                       <CheckCircleIcon className="h-5 w-5 mr-2" />
-                      <span className="font-medium">Success ({success.length})</span>
+                      <span className="font-medium">
+                        Success ({success.length})
+                      </span>
                     </div>
                     <ul className="text-sm text-gray-700 divide-y">
                       {success.map((item, index) => (
-                        <li key={index} className="py-2 flex items-center gap-2">
+                        <li
+                          key={index}
+                          className="py-2 flex items-center gap-2"
+                        >
                           <CalendarDaysIcon className="h-4 w-4 text-blue-500" />
                           <span>
-                            {item.date} – Spot #{item.spotId}
+                            {item.date} – Spot #{item.spotCode}
                           </span>
                         </li>
                       ))}
@@ -69,11 +74,16 @@ function BookingSummaryModal({ results, onClose }) {
                   <div>
                     <div className="flex items-center text-red-600 mb-2">
                       <XCircleIcon className="h-5 w-5 mr-2" />
-                      <span className="font-medium">Failed ({failed.length})</span>
+                      <span className="font-medium">
+                        Failed ({failed.length})
+                      </span>
                     </div>
                     <ul className="text-sm text-gray-700 divide-y">
                       {failed.map((item, index) => (
-                        <li key={index} className="py-2 flex items-center gap-2">
+                        <li
+                          key={index}
+                          className="py-2 flex items-center gap-2"
+                        >
                           <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
                           <span>
                             {item.date} – {item.reason || "Unknown error"}

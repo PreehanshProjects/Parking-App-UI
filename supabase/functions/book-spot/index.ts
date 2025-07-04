@@ -13,34 +13,48 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  // Authenticate user
   const { user, error: authError } = await getUser(req);
   if (authError || !user) {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  let body: { spotId?: number; date?: string };
+  // Parse request body
+  let body: { spotCode?: string; date?: string };
   try {
     body = await req.json();
   } catch {
     return new Response("Invalid JSON body", { status: 400, headers: corsHeaders });
   }
 
-  const { spotId, date } = body;
+  const { spotCode, date } = body;
 
-  if (!spotId || !date) {
-    return new Response("Missing 'spotId' or 'date'", { status: 400, headers: corsHeaders });
+  if (!spotCode || !date) {
+    return new Response("Missing 'spotCode' or 'date'", { status: 400, headers: corsHeaders });
   }
 
-  // Duplicate checks skipped for brevity (use your existing logic)
+  // Look up spot ID by code (spotCode is string, unique)
+  const { data: spot, error: spotError } = await supabase
+    .from("spots")
+    .select("id")
+    .eq("code", spotCode)
+    .single();
 
+  if (spotError || !spot) {
+    return new Response("Invalid spot code: spot does not exist", { status: 400, headers: corsHeaders });
+  }
+
+  const spotIdInt = spot.id;
+
+  // Insert booking with real spot id
   const { data, error: insertError } = await supabase
     .from("bookings")
     .insert([
       {
-        spot_id: spotId,
+        spot_id: spotIdInt,
         booking_date: date,
         user_id: user.id,
-        user_email: user.email, // ✅ insert email
+        user_email: user.email,
         created_at: new Date().toISOString(),
       },
     ])

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/App.jsx
+import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { supabase } from "./utils/supabaseClient";
@@ -9,60 +10,25 @@ import {
   getAllBookings,
   cancelBooking,
 } from "./api/booking";
+import { getSpots } from "./api/spot";
 
 import Navbar from "./components/NavBar";
 import Login from "./components/Auth/Login";
-import DateSelector from "./components/DateSelector";
-import ParkingList from "./components/ParkingList";
 import BookingsPage from "./pages/BookingsPage";
-import QuickBooking from "./components/QuickBooking";
+import AdminPage from "./pages/AdminPage";
 import BookingSummaryModal from "./components/BookingSummaryModal";
-import { parkingSpots as initialSpots } from "./data/parkingSpots";
-import "./index.css";
 
-function MainPage({
-  spots,
-  selectedDate,
-  setSelectedDate,
-  handleBooking,
-  allBookings,
-  userBookings,
-  onQuickBookingResults,
-}) {
-  return (
-    <>
-      <div className="flex flex-col lg:flex-row gap-6 px-6">
-        <div className="flex-1">
-          <DateSelector
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-          />
-        </div>
-        <div className="flex-1">
-          <QuickBooking
-            spots={spots}
-            allBookings={allBookings}
-            userBookings={userBookings}
-            onBookingComplete={onQuickBookingResults}
-          />
-        </div>
-      </div>
-      <ParkingList spots={spots} onBook={handleBooking} />
-    </>
-  );
-}
+import MainPage from "./pages/MainPage";
 
 function App() {
-  const location = useLocation(); // 👈 used to track current route
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [userBookings, setUserBookings] = useState([]);
   const [allBookings, setAllBookings] = useState([]);
-
-  const [spots, setSpots] = useState(initialSpots);
+  const [spots, setSpots] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
-
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [bookingResults, setBookingResults] = useState(null);
@@ -70,7 +36,19 @@ function App() {
   const currentUser = session?.user?.id ?? null;
   const userEmail = session?.user?.email ?? null;
 
-  const fetchAllBookings = async () => {
+  // Fetch spots
+  const fetchSpots = useCallback(async () => {
+    try {
+      const spotsFromDb = await getSpots();
+      setSpots(spotsFromDb);
+    } catch (error) {
+      console.error("Failed to fetch spots:", error);
+      toast.error("Failed to load parking spots.");
+    }
+  }, []);
+
+  // Fetch all bookings
+  const fetchAllBookings = useCallback(async () => {
     try {
       const bookings = await getAllBookings();
       setAllBookings(bookings);
@@ -78,9 +56,10 @@ function App() {
       console.error("Failed to fetch all bookings:", error);
       toast.error("Could not load spot availability.");
     }
-  };
+  }, []);
 
-  const fetchUserBookings = async () => {
+  // Fetch user bookings
+  const fetchUserBookings = useCallback(async () => {
     try {
       const bookings = await getUserBookings();
       setUserBookings(bookings);
@@ -88,14 +67,14 @@ function App() {
       console.error("Failed to fetch your bookings:", error);
       toast.error("Could not load your bookings.");
     }
-  };
+  }, []);
 
+  // Auth session and subscription on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
 
-      // Clean URL hash after OAuth redirect
       if (window.location.hash.startsWith("#access_token")) {
         window.history.replaceState(
           {},
@@ -114,19 +93,23 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Fetch data on login state change
   useEffect(() => {
     if (session) {
+      fetchSpots();
       fetchUserBookings();
       fetchAllBookings();
     } else {
+      setSpots([]);
       setUserBookings([]);
       setAllBookings([]);
     }
-  }, [session]);
+  }, [session, fetchSpots, fetchUserBookings, fetchAllBookings]);
 
+  // Update spots booked status
   useEffect(() => {
-    setSpots(
-      initialSpots.map((spot) => {
+    setSpots((prevSpots) =>
+      prevSpots.map((spot) => {
         const booking = allBookings.find(
           (b) =>
             b.spotId === spot.id &&
@@ -143,6 +126,7 @@ function App() {
     );
   }, [allBookings, selectedDate]);
 
+  // Booking handler
   const handleBooking = async (spotId) => {
     if (!session) return toast.error("Please log in first.");
 
@@ -195,6 +179,7 @@ function App() {
     }
   };
 
+  // Cancel booking handler
   const handleCancel = async (bookingToCancel) => {
     try {
       setIsCancelling(true);
@@ -221,7 +206,6 @@ function App() {
     <div className="min-h-screen bg-gray-100 relative">
       <Toaster position="bottom-right" />
 
-      {/* ✅ Show Navbar only if NOT on login route */}
       {location.pathname !== "/login" && (
         <Navbar
           isLoggedIn={!!session}
@@ -259,6 +243,10 @@ function App() {
           }
         />
         <Route
+          path="/admin"
+          element={session ? <AdminPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
           path="/bookings"
           element={
             session ? (
@@ -278,7 +266,6 @@ function App() {
         />
       </Routes>
 
-      {/* 🚗 Loading animation overlay */}
       {(isBooking || isCancelling) && (
         <div
           className="car-loader fixed inset-0 z-50 flex items-center justify-center"

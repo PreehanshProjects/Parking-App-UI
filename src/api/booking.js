@@ -41,10 +41,10 @@ async function parseError(response) {
 
 /**
  * Books a parking spot for a specific date.
- * @param {string} spotId
+ * @param {string} spotCode
  * @param {string} date - ISO string (YYYY-MM-DD)
  */
-export async function bookSpot(spotId, date) {
+export async function bookSpot(spotCode, date) {
   const token = await getToken();
 
   const response = await fetch(`${FUNCTION_URL_BASE}/book-spot`, {
@@ -53,7 +53,7 @@ export async function bookSpot(spotId, date) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ spotId, date }),
+    body: JSON.stringify({ spotCode, date }),
   });
 
   if (!response.ok) {
@@ -153,4 +153,3 @@ export async function quickBook(dates, prioritizeUnderground = false) {
 
   return await response.json(); // Expecting array of results: { date, status, [spotId] }
 }
-

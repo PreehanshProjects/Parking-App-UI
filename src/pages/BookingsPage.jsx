@@ -27,7 +27,7 @@ function BookingsPage({ bookings, onCancel }) {
               <div className="flex items-center gap-3 mb-2">
                 <MapPinIcon className="h-6 w-6 text-blue-500" />
                 <p className="text-lg font-semibold text-gray-800">
-                  Spot #{booking.spotId}
+                  Spot #{booking.spotCode}
                 </p>
               </div>
 

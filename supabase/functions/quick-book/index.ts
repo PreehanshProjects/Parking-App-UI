@@ -46,7 +46,7 @@ serve(async (req) => {
 
   const { data: spots, error: spotError } = await supabase
     .from("spots")
-    .select("id, type");
+    .select("id, type, code");  // <-- include 'code' here
 
   if (spotError) {
     return new Response(`Error fetching spots: ${spotError.message}`, { status: 500, headers: corsHeaders });
@@ -123,7 +123,7 @@ serve(async (req) => {
         undergroundWeekMap[weekKey] = newUndergroundsThisWeek + 1;
       }
 
-      results.push({ date: isoDate, spotId: spot.id, status: "booked" });
+      results.push({ date: isoDate, spotId: spot.id, spotCode: spot.code, status: "booked" });
       booked = true;
       break;
     }
