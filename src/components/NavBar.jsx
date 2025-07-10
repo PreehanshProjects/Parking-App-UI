@@ -29,7 +29,7 @@ function Navbar({ isLoggedIn, isAdmin, userEmail, onLoginToggle }) {
     },
     {
       href: "/bookings",
-      label: "My Bookingsssss",
+      label: "My Bookings",
       icon: <CalendarIcon className="w-5 h-5" />,
     },
     ...(isAdmin
